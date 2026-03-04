@@ -15,10 +15,20 @@ pygame.mixer.init()
 
 app = ctk.CTk()
 app.title("Digha Science Centre – Announcement System")
-app.attributes("-fullscreen", True)
+
+# -------------------- FULLSCREEN FIX --------------------
+
+app.update_idletasks()
+
+screen_width = app.winfo_screenwidth()
+screen_height = app.winfo_screenheight()
+
+app.geometry(f"{screen_width}x{screen_height}+0+0")
+app.overrideredirect(True)  # Removes title bar & border
 
 def exit_fullscreen(event=None):
-    app.attributes("-fullscreen", False)
+    app.overrideredirect(False)
+    app.geometry("1200x800")
 
 app.bind("<Escape>", exit_fullscreen)
 
@@ -29,12 +39,12 @@ is_playing = False
 current_playing_file = None
 queued_files = []
 
-buttons_map = {}  # file_name → button reference
+buttons_map = {}
 
 current_playing_var = ctk.StringVar(value="Idle")
 queue_status_var = ctk.StringVar(value="Queue: 0")
 
-# -------------------- BUTTON VISUAL STATES --------------------
+# -------------------- BUTTON COLORS --------------------
 
 NORMAL_COLOR = "#1f6aa5"
 QUEUE_COLOR = "#aa7d00"
@@ -43,11 +53,12 @@ PLAY_COLOR_2 = "#00ff88"
 
 blink_state = False
 
+# -------------------- BUTTON VISUAL UPDATE --------------------
+
 def update_button_states():
     for file_name, btn in buttons_map.items():
 
         if file_name == current_playing_file:
-            # blinking handled separately
             continue
 
         elif file_name in queued_files:
