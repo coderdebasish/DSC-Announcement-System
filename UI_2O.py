@@ -18,12 +18,11 @@ pygame.mixer.init()
 app = ctk.CTk()
 app.title("Digha Science Centre – Announcement System")
 
-# -------- FULLSCREEN STABLE --------
-
+# -------- FULLSCREEN --------
 app.update_idletasks()
-screen_width = app.winfo_screenwidth()
-screen_height = app.winfo_screenheight()
-app.geometry(f"{screen_width}x{screen_height}+0+0")
+w = app.winfo_screenwidth()
+h = app.winfo_screenheight()
+app.geometry(f"{w}x{h}+0+0")
 app.overrideredirect(True)
 
 def exit_fullscreen(event=None):
@@ -54,7 +53,7 @@ queue_status_var = ctk.StringVar(value="Queue: 0")
 clock_var = ctk.StringVar()
 
 # =========================================================
-# THREAD-SAFE UI UPDATE
+# THREAD SAFE UI
 # =========================================================
 
 def safe_ui(func, *args):
@@ -71,10 +70,6 @@ PLAY_COLOR_2 = "#00ff88"
 
 blink_state = False
 
-# =========================================================
-# BUTTON STATE UPDATE
-# =========================================================
-
 def update_button_states():
     for file_name, btn in buttons_map.items():
         if file_name == current_playing_file:
@@ -86,20 +81,15 @@ def update_button_states():
 
 def blink_playing_button():
     global blink_state
-
     if current_playing_file and current_playing_file in buttons_map:
         btn = buttons_map[current_playing_file]
-        color = PLAY_COLOR_1 if blink_state else PLAY_COLOR_2
-        btn.configure(fg_color=color)
+        btn.configure(
+            fg_color=PLAY_COLOR_1 if blink_state else PLAY_COLOR_2
+        )
         blink_state = not blink_state
-
     app.after(500, blink_playing_button)
 
 blink_playing_button()
-
-# =========================================================
-# QUEUE DISPLAY
-# =========================================================
 
 def update_queue_display():
     total = audio_queue.qsize()
@@ -159,8 +149,6 @@ def enqueue_audio(show, time_slot):
         audio_queue.put(file_name)
         queued_files.append(file_name)
         update_queue_display()
-    else:
-        current_playing_var.set("File Not Found")
 
 def stop_audio():
     global is_playing, current_playing_file
@@ -170,18 +158,15 @@ def stop_audio():
     current_playing_file = None
 
     while not audio_queue.empty():
-        try:
-            audio_queue.get_nowait()
-            audio_queue.task_done()
-        except:
-            break
+        audio_queue.get_nowait()
+        audio_queue.task_done()
 
     queued_files.clear()
     update_queue_display()
     current_playing_var.set("Stopped")
 
 # =========================================================
-# CLOCK (SYSTEM SYNCED)
+# CLOCK
 # =========================================================
 
 def update_clock():
@@ -193,7 +178,7 @@ def update_clock():
 update_clock()
 
 # =========================================================
-# AUTOPILOT ENGINE
+# AUTOPILOT ENGINE (FIXED 15 + 10 MIN)
 # =========================================================
 
 def parse_show_time(time_str):
@@ -222,27 +207,29 @@ def autopilot_scheduler():
                         show_time = parse_show_time(time_slot)
                         show_dt = datetime.datetime.combine(today, show_time)
 
-                        triggers = []
+                        trigger_map = []
 
                         if "Ticket" in show:
-                            triggers = [
-                                show_dt - datetime.timedelta(minutes=15),
-                                show_dt - datetime.timedelta(minutes=10)
+                            trigger_map = [
+                                ("15min", show_dt - datetime.timedelta(minutes=15)),
+                                ("10min", show_dt - datetime.timedelta(minutes=10))
                             ]
 
                         if "Show" in show and "Ticket" not in show:
-                            triggers = [
-                                show_dt - datetime.timedelta(minutes=5)
+                            trigger_map = [
+                                ("5min", show_dt - datetime.timedelta(minutes=5))
                             ]
 
-                        for trigger in triggers:
-                            if trigger == current_time:
+                        for trigger_type, trigger_time in trigger_map:
+                            if trigger_time == current_time:
 
                                 time_slot_new = time_slot.replace(":", "")
                                 file_name = f"{show}_{time_slot_new}.mp3"
 
-                                if file_name not in session_triggered_events:
-                                    session_triggered_events.add(file_name)
+                                event_key = (file_name, trigger_type)
+
+                                if event_key not in session_triggered_events:
+                                    session_triggered_events.add(event_key)
 
                                     if os.path.exists(file_name):
                                         audio_queue.put(file_name)
@@ -254,31 +241,18 @@ def autopilot_scheduler():
 threading.Thread(target=autopilot_scheduler, daemon=True).start()
 
 # =========================================================
-# AUTOPILOT BUTTON
+# BUTTON ACTIONS
 # =========================================================
 
 def toggle_autopilot():
     global autopilot_mode, session_triggered_events
-
     autopilot_mode = not autopilot_mode
+    session_triggered_events.clear()
 
     if autopilot_mode:
-        session_triggered_events.clear()
-        autopilot_button.configure(
-            text="AUTOPILOT: ON",
-            fg_color="#008f4c",
-            hover_color="#00b861"
-        )
+        autopilot_button.configure(text="AUTOPILOT: ON", fg_color="green")
     else:
-        autopilot_button.configure(
-            text="AUTOPILOT: OFF",
-            fg_color="#8f0000",
-            hover_color="#b80000"
-        )
-
-# =========================================================
-# THEME TOGGLE
-# =========================================================
+        autopilot_button.configure(text="AUTOPILOT: OFF", fg_color="red")
 
 def toggle_theme():
     global theme_mode
@@ -299,19 +273,17 @@ def toggle_theme():
 top_frame = ctk.CTkFrame(app, height=80)
 top_frame.pack(fill="x", pady=10, padx=20)
 
-title_label = ctk.CTkLabel(
+ctk.CTkLabel(
     top_frame,
     text="Digha Science Centre – Announcement Control Panel",
     font=("Arial", 28, "bold")
-)
-title_label.pack(side="left", padx=20)
+).pack(side="left", padx=20)
 
-clock_label = ctk.CTkLabel(
+ctk.CTkLabel(
     top_frame,
     textvariable=clock_var,
     font=("Arial", 24)
-)
-clock_label.pack(side="right", padx=20)
+).pack(side="right", padx=20)
 
 theme_button = ctk.CTkButton(
     top_frame,
@@ -326,11 +298,9 @@ theme_button.pack(side="right", padx=10)
 autopilot_button = ctk.CTkButton(
     top_frame,
     text="AUTOPILOT: OFF",
-    width=260,
+    width=220,
     height=55,
-    font=("Arial", 18, "bold"),
-    fg_color="#8f0000",
-    hover_color="#b80000",
+    fg_color="red",
     command=toggle_autopilot
 )
 autopilot_button.pack(side="right", padx=10)
@@ -340,74 +310,77 @@ autopilot_button.pack(side="right", padx=10)
 # =========================================================
 
 show_times = {
-    "Space & Astronomy Call For Show": ["09:30 AM","10:30 AM","11:30 AM","12:00 NOON","12:30 PM",
-                                       "02:00 PM","03:00 PM","04:00 PM","04:30 PM","05:00 PM",
-                                       "05:30 PM","06:00 PM","06:30 PM","07:00 PM"],
+    "Space & Astronomy Call For Ticket": [
+        "09:30 AM","10:30 AM","11:30 AM","12:00 NOON","12:30 PM",
+        "02:00 PM","03:00 PM","04:00 PM","04:30 PM","05:00 PM",
+        "05:30 PM","06:00 PM","06:30 PM","07:00 PM"
+    ],
 
-    "Space & Astronomy Call For Ticket": ["09:30 AM","10:30 AM","11:30 AM","12:00 NOON","12:30 PM",
-                                         "02:00 PM","03:00 PM","04:00 PM","04:30 PM","05:00 PM",
-                                         "05:30 PM","06:00 PM","06:30 PM","07:00 PM"],
+    "Space & Astronomy Call For Show": [
+        "09:30 AM","10:30 AM","11:30 AM","12:00 NOON","12:30 PM",
+        "02:00 PM","03:00 PM","04:00 PM","04:30 PM","05:00 PM",
+        "05:30 PM","06:00 PM","06:30 PM","07:00 PM"
+    ],
 
-    "3D Show Call For Show": ["09:00 AM","10:00 AM","11:00 AM","12:00 NOON","12:30 PM",
-                              "02:00 PM","03:30 PM","04:00 PM","04:30 PM","05:00 PM",
-                              "05:30 PM","06:00 PM","06:30 PM","07:00 PM"],
+    "3D Show Call For Ticket": [
+        "09:00 AM","10:00 AM","11:00 AM","12:00 NOON","12:30 PM",
+        "02:00 PM","03:30 PM","04:00 PM","04:30 PM","05:00 PM",
+        "05:30 PM","06:00 PM","06:30 PM","07:00 PM"
+    ],
 
-    "3D Show Call For Ticket": ["09:00 AM","10:00 AM","11:00 AM","12:00 NOON","12:30 PM",
-                                "02:00 PM","03:30 PM","04:00 PM","04:30 PM","05:00 PM",
-                                "05:30 PM","06:00 PM","06:30 PM","07:00 PM"],
+    "3D Show Call For Show": [
+        "09:00 AM","10:00 AM","11:00 AM","12:00 NOON","12:30 PM",
+        "02:00 PM","03:30 PM","04:00 PM","04:30 PM","05:00 PM",
+        "05:30 PM","06:00 PM","06:30 PM","07:00 PM"
+    ],
 
-    "Fun Science Show Call For Show": ["12:00 NOON","01:00 PM","03:00 PM","04:00 PM",
-                                       "05:00 PM","06:00 PM","07:00 PM"],
+    "Fun Science Show Call For Ticket": [
+        "12:00 NOON","01:00 PM","03:00 PM","04:00 PM",
+        "05:00 PM","06:00 PM","07:00 PM"
+    ],
 
-    "Fun Science Show Call For Ticket": ["12:00 NOON","01:00 PM","03:00 PM","04:00 PM",
-                                         "05:00 PM","06:00 PM","07:00 PM"],
+    "Fun Science Show Call For Show": [
+        "12:00 NOON","01:00 PM","03:00 PM","04:00 PM",
+        "05:00 PM","06:00 PM","07:00 PM"
+    ],
 }
+
+# -------- Layout (Tickets Top Row, Shows Bottom Row) --------
+
+ticket_sections = [k for k in show_times if "Ticket" in k]
+show_sections = [k for k in show_times if "Show" in k and "Ticket" not in k]
 
 main_frame = ctk.CTkFrame(app)
 main_frame.pack(expand=True, fill="both", padx=20, pady=10)
 
-rows = 2
-cols = 3
+main_frame.grid_rowconfigure(0, weight=1)
+main_frame.grid_rowconfigure(1, weight=1)
 
-for r in range(rows):
-    main_frame.grid_rowconfigure(r, weight=1)
-for c in range(cols):
-    main_frame.grid_columnconfigure(c, weight=1)
+for i in range(3):
+    main_frame.grid_columnconfigure(i, weight=1)
 
-sections = list(show_times.items())
+def create_section(row, col, show):
+    frame = ctk.CTkFrame(main_frame, corner_radius=15)
+    frame.grid(row=row, column=col, sticky="nsew", padx=15, pady=15)
 
-for index, (show, times) in enumerate(sections):
-    row = index // cols
-    col = index % cols
+    ctk.CTkLabel(frame, text=show, font=("Arial", 18, "bold")).pack(pady=10)
 
-    section_frame = ctk.CTkFrame(main_frame, corner_radius=15)
-    section_frame.grid(row=row, column=col, sticky="nsew", padx=15, pady=15)
-
-    section_label = ctk.CTkLabel(
-        section_frame,
-        text=show,
-        font=("Arial", 18, "bold")
-    )
-    section_label.pack(pady=10)
-
-    button_frame = ctk.CTkFrame(section_frame)
+    button_frame = ctk.CTkFrame(frame)
     button_frame.pack(expand=True, fill="both", padx=10, pady=10)
 
     for i in range(4):
         button_frame.grid_columnconfigure(i, weight=1)
 
-    for i, time_slot in enumerate(times):
+    for i, time_slot in enumerate(show_times[show]):
         r = i // 4
         c = i % 4
-
         time_slot_new = time_slot.replace(":", "")
         file_name = f"{show}_{time_slot_new}.mp3"
 
         btn = ctk.CTkButton(
             button_frame,
             text=time_slot,
-            height=65,
-            font=("Arial", 16, "bold"),
+            height=60,
             fg_color=NORMAL_COLOR,
             command=lambda s=show, t=time_slot: enqueue_audio(s, t)
         )
@@ -415,33 +388,37 @@ for index, (show, times) in enumerate(sections):
 
         buttons_map[file_name] = btn
 
+for i, section in enumerate(ticket_sections):
+    create_section(0, i, section)
+
+for i, section in enumerate(show_sections):
+    create_section(1, i, section)
+
+# =========================================================
+# STATUS BAR
+# =========================================================
+
 bottom_frame = ctk.CTkFrame(app, height=80)
 bottom_frame.pack(fill="x", padx=20, pady=10)
 
-status_label = ctk.CTkLabel(
-    bottom_frame,
-    textvariable=current_playing_var,
-    font=("Arial", 20, "bold")
-)
-status_label.pack(side="left", padx=20)
+ctk.CTkLabel(bottom_frame,
+             textvariable=current_playing_var,
+             font=("Arial", 20, "bold")
+             ).pack(side="left", padx=20)
 
-queue_label = ctk.CTkLabel(
-    bottom_frame,
-    textvariable=queue_status_var,
-    font=("Arial", 20)
-)
-queue_label.pack(side="left", padx=20)
+ctk.CTkLabel(bottom_frame,
+             textvariable=queue_status_var,
+             font=("Arial", 20)
+             ).pack(side="left", padx=20)
 
-stop_button = ctk.CTkButton(
+ctk.CTkButton(
     bottom_frame,
     text="STOP",
     fg_color="red",
-    hover_color="#8B0000",
-    height=65,
-    width=220,
+    height=60,
+    width=200,
     font=("Arial", 20, "bold"),
     command=stop_audio
-)
-stop_button.pack(side="right", padx=20)
+).pack(side="right", padx=20)
 
 app.mainloop()
