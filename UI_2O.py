@@ -53,8 +53,11 @@ NORMAL_COLOR = "#1f6aa5"
 QUEUE_COLOR = "#aa7d00"
 PLAY_COLOR_1 = "#00aa55"
 PLAY_COLOR_2 = "#00ff88"
-ACTIVE_COLOR = "#00c8c8"
-INACTIVE_COLOR = "#444444"
+
+GREEN = "#00c853"
+YELLOW = "#ffd600"
+RED = "#d50000"
+INACTIVE = "#3a3a3a"
 
 blink_state = False
 fake_level = 0
@@ -142,24 +145,29 @@ def audio_worker():
 threading.Thread(target=audio_worker, daemon=True).start()
 
 # =========================================================
-# FAKE VISUALIZER (STABLE)
+# FAKE 3-COLOR VISUALIZER
 # =========================================================
 
 def update_visualizer():
     global fake_level
 
     if is_playing:
-        # Random peak
         peak = random.randint(5, 20)
         fake_level = int(fake_level * 0.6 + peak * 0.4)
     else:
         fake_level = int(fake_level * 0.7)
 
     for i, bar in enumerate(visualizer_segments):
+
         if i < fake_level:
-            bar.configure(fg_color=ACTIVE_COLOR)
+            if i < 12:
+                bar.configure(fg_color=GREEN)
+            elif i < 17:
+                bar.configure(fg_color=YELLOW)
+            else:
+                bar.configure(fg_color=RED)
         else:
-            bar.configure(fg_color=INACTIVE_COLOR)
+            bar.configure(fg_color=INACTIVE)
 
     app.after(80, update_visualizer)
 
@@ -282,7 +290,6 @@ def toggle_autopilot():
 
 def toggle_theme():
     global theme_mode
-
     if theme_mode == "dark":
         theme_mode = "light"
         ctk.set_appearance_mode("light")
@@ -331,7 +338,7 @@ autopilot_button = ctk.CTkButton(
 autopilot_button.pack(side="right", padx=10)
 
 # =========================================================
-# SHOW DATA
+# SHOW DATA (unchanged from previous version)
 # =========================================================
 
 show_times = {
@@ -390,7 +397,7 @@ for i, section in enumerate(show_sections):
     create_section(1, i, section)
 
 # =========================================================
-# STATUS BAR + VISUALIZER
+# STATUS BAR + VISUALIZER + STOP
 # =========================================================
 
 bottom_frame = ctk.CTkFrame(app, height=80)
@@ -406,8 +413,21 @@ ctk.CTkLabel(bottom_frame,
              font=("Arial", 18)
              ).pack(side="left", padx=20)
 
+# STOP button (far right)
+stop_button = ctk.CTkButton(
+    bottom_frame,
+    text="STOP",
+    fg_color="red",
+    height=55,
+    width=150,
+    font=("Arial", 18, "bold"),
+    command=stop_audio
+)
+stop_button.pack(side="right", padx=20)
+
+# Visualizer just left of STOP
 visualizer_frame = ctk.CTkFrame(bottom_frame)
-visualizer_frame.pack(side="right", padx=20)
+visualizer_frame.pack(side="right", padx=10)
 
 visualizer_segments = []
 
@@ -416,20 +436,10 @@ for i in range(20):
         visualizer_frame,
         width=12,
         height=20,
-        fg_color=INACTIVE_COLOR
+        fg_color=INACTIVE
     )
     bar.pack(side="left", padx=2)
     visualizer_segments.append(bar)
-
-ctk.CTkButton(
-    bottom_frame,
-    text="STOP",
-    fg_color="red",
-    height=55,
-    width=150,
-    font=("Arial", 18, "bold"),
-    command=stop_audio
-).pack(side="right", padx=20)
 
 update_visualizer()
 
