@@ -5,6 +5,7 @@ import queue
 import datetime
 import time
 import os
+import random
 
 # =========================================================
 # INITIAL SETUP
@@ -48,6 +49,16 @@ session_triggered_events = set()
 
 theme_mode = "dark"
 
+NORMAL_COLOR = "#1f6aa5"
+QUEUE_COLOR = "#aa7d00"
+PLAY_COLOR_1 = "#00aa55"
+PLAY_COLOR_2 = "#00ff88"
+ACTIVE_COLOR = "#00c8c8"
+INACTIVE_COLOR = "#444444"
+
+blink_state = False
+fake_level = 0
+
 current_playing_var = ctk.StringVar(value="Idle")
 queue_status_var = ctk.StringVar(value="Queue: 0")
 clock_var = ctk.StringVar()
@@ -60,15 +71,8 @@ def safe_ui(func, *args):
     app.after(0, func, *args)
 
 # =========================================================
-# BUTTON COLORS
+# BUTTON STATES
 # =========================================================
-
-NORMAL_COLOR = "#1f6aa5"
-QUEUE_COLOR = "#aa7d00"
-PLAY_COLOR_1 = "#00aa55"
-PLAY_COLOR_2 = "#00ff88"
-
-blink_state = False
 
 def update_button_states():
     for file_name, btn in buttons_map.items():
@@ -138,6 +142,28 @@ def audio_worker():
 threading.Thread(target=audio_worker, daemon=True).start()
 
 # =========================================================
+# FAKE VISUALIZER (STABLE)
+# =========================================================
+
+def update_visualizer():
+    global fake_level
+
+    if is_playing:
+        # Random peak
+        peak = random.randint(5, 20)
+        fake_level = int(fake_level * 0.6 + peak * 0.4)
+    else:
+        fake_level = int(fake_level * 0.7)
+
+    for i, bar in enumerate(visualizer_segments):
+        if i < fake_level:
+            bar.configure(fg_color=ACTIVE_COLOR)
+        else:
+            bar.configure(fg_color=INACTIVE_COLOR)
+
+    app.after(80, update_visualizer)
+
+# =========================================================
 # PLAY FUNCTIONS
 # =========================================================
 
@@ -178,7 +204,7 @@ def update_clock():
 update_clock()
 
 # =========================================================
-# AUTOPILOT ENGINE (FIXED 15 + 10 MIN)
+# AUTOPILOT ENGINE
 # =========================================================
 
 def parse_show_time(time_str):
@@ -288,9 +314,8 @@ ctk.CTkLabel(
 theme_button = ctk.CTkButton(
     top_frame,
     text="DARK MODE",
-    width=160,
-    height=55,
-    font=("Arial", 16, "bold"),
+    width=150,
+    height=50,
     command=toggle_theme
 )
 theme_button.pack(side="right", padx=10)
@@ -298,8 +323,8 @@ theme_button.pack(side="right", padx=10)
 autopilot_button = ctk.CTkButton(
     top_frame,
     text="AUTOPILOT: OFF",
-    width=220,
-    height=55,
+    width=200,
+    height=50,
     fg_color="red",
     command=toggle_autopilot
 )
@@ -310,42 +335,13 @@ autopilot_button.pack(side="right", padx=10)
 # =========================================================
 
 show_times = {
-    "Space & Astronomy Call For Ticket": [
-        "09:30 AM","10:30 AM","11:30 AM","12:00 NOON","12:30 PM",
-        "02:00 PM","03:00 PM","04:00 PM","04:30 PM","05:00 PM",
-        "05:30 PM","06:00 PM","06:30 PM","07:00 PM"
-    ],
-
-    "Space & Astronomy Call For Show": [
-        "09:30 AM","10:30 AM","11:30 AM","12:00 NOON","12:30 PM",
-        "02:00 PM","03:00 PM","04:00 PM","04:30 PM","05:00 PM",
-        "05:30 PM","06:00 PM","06:30 PM","07:00 PM"
-    ],
-
-    "3D Show Call For Ticket": [
-        "09:00 AM","10:00 AM","11:00 AM","12:00 NOON","12:30 PM",
-        "02:00 PM","03:30 PM","04:00 PM","04:30 PM","05:00 PM",
-        "05:30 PM","06:00 PM","06:30 PM","07:00 PM"
-    ],
-
-    "3D Show Call For Show": [
-        "09:00 AM","10:00 AM","11:00 AM","12:00 NOON","12:30 PM",
-        "02:00 PM","03:30 PM","04:00 PM","04:30 PM","05:00 PM",
-        "05:30 PM","06:00 PM","06:30 PM","07:00 PM"
-    ],
-
-    "Fun Science Show Call For Ticket": [
-        "12:00 NOON","01:00 PM","03:00 PM","04:00 PM",
-        "05:00 PM","06:00 PM","07:00 PM"
-    ],
-
-    "Fun Science Show Call For Show": [
-        "12:00 NOON","01:00 PM","03:00 PM","04:00 PM",
-        "05:00 PM","06:00 PM","07:00 PM"
-    ],
+    "Space & Astronomy Call For Ticket": ["09:30 AM","10:30 AM","11:30 AM","12:00 NOON","12:30 PM","02:00 PM","03:00 PM","04:00 PM","04:30 PM","05:00 PM","05:30 PM","06:00 PM","06:30 PM","07:00 PM"],
+    "Space & Astronomy Call For Show": ["09:30 AM","10:30 AM","11:30 AM","12:00 NOON","12:30 PM","02:00 PM","03:00 PM","04:00 PM","04:30 PM","05:00 PM","05:30 PM","06:00 PM","06:30 PM","07:00 PM"],
+    "3D Show Call For Ticket": ["09:00 AM","10:00 AM","11:00 AM","12:00 NOON","12:30 PM","02:00 PM","03:30 PM","04:00 PM","04:30 PM","05:00 PM","05:30 PM","06:00 PM","06:30 PM","07:00 PM"],
+    "3D Show Call For Show": ["09:00 AM","10:00 AM","11:00 AM","12:00 NOON","12:30 PM","02:00 PM","03:30 PM","04:00 PM","04:30 PM","05:00 PM","05:30 PM","06:00 PM","06:30 PM","07:00 PM"],
+    "Fun Science Show Call For Ticket": ["12:00 NOON","01:00 PM","03:00 PM","04:00 PM","05:00 PM","06:00 PM","07:00 PM"],
+    "Fun Science Show Call For Show": ["12:00 NOON","01:00 PM","03:00 PM","04:00 PM","05:00 PM","06:00 PM","07:00 PM"],
 }
-
-# -------- Layout (Tickets Top Row, Shows Bottom Row) --------
 
 ticket_sections = [k for k in show_times if "Ticket" in k]
 show_sections = [k for k in show_times if "Show" in k and "Ticket" not in k]
@@ -380,12 +376,11 @@ def create_section(row, col, show):
         btn = ctk.CTkButton(
             button_frame,
             text=time_slot,
-            height=60,
+            height=55,
             fg_color=NORMAL_COLOR,
             command=lambda s=show, t=time_slot: enqueue_audio(s, t)
         )
         btn.grid(row=r, column=c, sticky="nsew", padx=5, pady=5)
-
         buttons_map[file_name] = btn
 
 for i, section in enumerate(ticket_sections):
@@ -395,7 +390,7 @@ for i, section in enumerate(show_sections):
     create_section(1, i, section)
 
 # =========================================================
-# STATUS BAR
+# STATUS BAR + VISUALIZER
 # =========================================================
 
 bottom_frame = ctk.CTkFrame(app, height=80)
@@ -403,22 +398,39 @@ bottom_frame.pack(fill="x", padx=20, pady=10)
 
 ctk.CTkLabel(bottom_frame,
              textvariable=current_playing_var,
-             font=("Arial", 20, "bold")
+             font=("Arial", 18, "bold")
              ).pack(side="left", padx=20)
 
 ctk.CTkLabel(bottom_frame,
              textvariable=queue_status_var,
-             font=("Arial", 20)
+             font=("Arial", 18)
              ).pack(side="left", padx=20)
+
+visualizer_frame = ctk.CTkFrame(bottom_frame)
+visualizer_frame.pack(side="right", padx=20)
+
+visualizer_segments = []
+
+for i in range(20):
+    bar = ctk.CTkFrame(
+        visualizer_frame,
+        width=12,
+        height=20,
+        fg_color=INACTIVE_COLOR
+    )
+    bar.pack(side="left", padx=2)
+    visualizer_segments.append(bar)
 
 ctk.CTkButton(
     bottom_frame,
     text="STOP",
     fg_color="red",
-    height=60,
-    width=200,
-    font=("Arial", 20, "bold"),
+    height=55,
+    width=150,
+    font=("Arial", 18, "bold"),
     command=stop_audio
 ).pack(side="right", padx=20)
+
+update_visualizer()
 
 app.mainloop()
