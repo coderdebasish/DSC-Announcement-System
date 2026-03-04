@@ -1,7 +1,6 @@
 import customtkinter as ctk
 import pygame
 import threading
-import queue
 import datetime
 import time
 import os
@@ -36,8 +35,7 @@ app.bind("<Escape>", exit_fullscreen)
 # GLOBAL STATE
 # =========================================================
 
-audio_queue = queue.Queue()
-queued_files = []
+audio_queue = []  # FIFO list instead of queue.Queue()
 buttons_map = {}
 
 is_playing = False
@@ -81,7 +79,7 @@ def update_button_states():
     for file_name, btn in buttons_map.items():
         if file_name == current_playing_file:
             continue
-        elif file_name in queued_files:
+        elif file_name in audio_queue:
             btn.configure(fg_color=QUEUE_COLOR)
         else:
             btn.configure(fg_color=NORMAL_COLOR)
@@ -99,28 +97,29 @@ def blink_playing_button():
 blink_playing_button()
 
 def update_queue_display():
-    total = audio_queue.qsize()
+    total = len(audio_queue)
     if is_playing:
         total += 1
     queue_status_var.set(f"Queue: {total}")
     update_button_states()
 
 # =========================================================
-# AUDIO ENGINE
+# AUDIO ENGINE (FIFO LIST)
 # =========================================================
 
 def audio_worker():
     global is_playing, current_playing_file
 
     while True:
-        file_path = audio_queue.get()
+        if not audio_queue:
+            time.sleep(0.1)
+            continue
+
+        file_path = audio_queue.pop(0)
 
         try:
             is_playing = True
             current_playing_file = file_path
-
-            if file_path in queued_files:
-                queued_files.remove(file_path)
 
             safe_ui(update_queue_display)
             safe_ui(current_playing_var.set,
@@ -137,7 +136,6 @@ def audio_worker():
 
         is_playing = False
         current_playing_file = None
-        audio_queue.task_done()
 
         safe_ui(update_queue_display)
         safe_ui(current_playing_var.set, "Idle")
@@ -158,7 +156,6 @@ def update_visualizer():
         fake_level = int(fake_level * 0.7)
 
     for i, bar in enumerate(visualizer_segments):
-
         if i < fake_level:
             if i < 12:
                 bar.configure(fg_color=GREEN)
@@ -172,30 +169,38 @@ def update_visualizer():
     app.after(80, update_visualizer)
 
 # =========================================================
-# PLAY FUNCTIONS
+# PLAY / QUEUE TOGGLE
 # =========================================================
 
 def enqueue_audio(show, time_slot):
+    global audio_queue
+
     time_slot_new = time_slot.replace(":", "")
     file_name = f"{show}_{time_slot_new}.mp3"
 
-    if os.path.exists(file_name):
-        audio_queue.put(file_name)
-        queued_files.append(file_name)
-        update_queue_display()
+    if not os.path.exists(file_name):
+        return
+
+    # If playing → ignore
+    if file_name == current_playing_file:
+        return
+
+    # If already in queue → remove (DESELECT)
+    if file_name in audio_queue:
+        audio_queue.remove(file_name)
+    else:
+        audio_queue.append(file_name)
+
+    update_queue_display()
 
 def stop_audio():
-    global is_playing, current_playing_file
+    global is_playing, current_playing_file, audio_queue
 
     pygame.mixer.music.stop()
     is_playing = False
     current_playing_file = None
+    audio_queue.clear()
 
-    while not audio_queue.empty():
-        audio_queue.get_nowait()
-        audio_queue.task_done()
-
-    queued_files.clear()
     update_queue_display()
     current_playing_var.set("Stopped")
 
@@ -266,8 +271,7 @@ def autopilot_scheduler():
                                     session_triggered_events.add(event_key)
 
                                     if os.path.exists(file_name):
-                                        audio_queue.put(file_name)
-                                        queued_files.append(file_name)
+                                        audio_queue.append(file_name)
                                         safe_ui(update_queue_display)
 
         time.sleep(1)
@@ -338,7 +342,7 @@ autopilot_button = ctk.CTkButton(
 autopilot_button.pack(side="right", padx=10)
 
 # =========================================================
-# SHOW DATA (unchanged from previous version)
+# SHOW DATA
 # =========================================================
 
 show_times = {
@@ -397,7 +401,7 @@ for i, section in enumerate(show_sections):
     create_section(1, i, section)
 
 # =========================================================
-# STATUS BAR + VISUALIZER + STOP
+# STATUS BAR
 # =========================================================
 
 bottom_frame = ctk.CTkFrame(app, height=80)
@@ -413,7 +417,6 @@ ctk.CTkLabel(bottom_frame,
              font=("Arial", 18)
              ).pack(side="left", padx=20)
 
-# STOP button (far right)
 stop_button = ctk.CTkButton(
     bottom_frame,
     text="STOP",
@@ -425,7 +428,6 @@ stop_button = ctk.CTkButton(
 )
 stop_button.pack(side="right", padx=20)
 
-# Visualizer just left of STOP
 visualizer_frame = ctk.CTkFrame(bottom_frame)
 visualizer_frame.pack(side="right", padx=10)
 
