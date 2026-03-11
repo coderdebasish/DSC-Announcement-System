@@ -5,6 +5,7 @@ import datetime
 import time
 import os
 import random
+from mutagen.mp3 import MP3
 
 # =========================================================
 # INITIAL SETUP
@@ -18,7 +19,6 @@ pygame.mixer.init()
 app = ctk.CTk()
 app.title("Digha Science Centre – Announcement System")
 
-# -------- FULLSCREEN --------
 app.update_idletasks()
 w = app.winfo_screenwidth()
 h = app.winfo_screenheight()
@@ -35,11 +35,12 @@ app.bind("<Escape>", exit_fullscreen)
 # GLOBAL STATE
 # =========================================================
 
-audio_queue = []  # FIFO list instead of queue.Queue()
+audio_queue = []
 buttons_map = {}
 
 is_playing = False
 current_playing_file = None
+current_length = 0
 
 autopilot_mode = False
 last_checked_minute = None
@@ -63,6 +64,9 @@ fake_level = 0
 current_playing_var = ctk.StringVar(value="Idle")
 queue_status_var = ctk.StringVar(value="Queue: 0")
 clock_var = ctk.StringVar()
+
+progress_var = ctk.DoubleVar(value=0)
+progress_text_var = ctk.StringVar(value="00:00 / 00:00")
 
 # =========================================================
 # THREAD SAFE UI
@@ -104,11 +108,11 @@ def update_queue_display():
     update_button_states()
 
 # =========================================================
-# AUDIO ENGINE (FIFO LIST)
+# AUDIO ENGINE
 # =========================================================
 
 def audio_worker():
-    global is_playing, current_playing_file
+    global is_playing, current_playing_file, current_length
 
     while True:
         if not audio_queue:
@@ -121,6 +125,9 @@ def audio_worker():
             is_playing = True
             current_playing_file = file_path
 
+            audio = MP3(file_path)
+            current_length = int(audio.info.length)
+
             safe_ui(update_queue_display)
             safe_ui(current_playing_var.set,
                     f"Playing: {os.path.basename(file_path)}")
@@ -129,7 +136,7 @@ def audio_worker():
             pygame.mixer.music.play()
 
             while pygame.mixer.music.get_busy():
-                time.sleep(0.2)
+                time.sleep(0.1)
 
         except:
             safe_ui(current_playing_var.set, "Error Playing File")
@@ -141,6 +148,33 @@ def audio_worker():
         safe_ui(current_playing_var.set, "Idle")
 
 threading.Thread(target=audio_worker, daemon=True).start()
+
+# =========================================================
+# PROGRESS BAR
+# =========================================================
+
+def update_progress():
+
+    if is_playing and current_length > 0:
+
+        pos = pygame.mixer.music.get_pos() / 1000
+        progress = min(pos / current_length, 1)
+
+        progress_var.set(progress)
+
+        elapsed = int(pos)
+        total = current_length
+
+        elapsed_str = f"{elapsed//60:02}:{elapsed%60:02}"
+        total_str = f"{total//60:02}:{total%60:02}"
+
+        progress_text_var.set(f"{elapsed_str} / {total_str}")
+
+    else:
+        progress_var.set(0)
+        progress_text_var.set("00:00 / 00:00")
+
+    app.after(200, update_progress)
 
 # =========================================================
 # FAKE 3-COLOR VISUALIZER
@@ -173,7 +207,6 @@ def update_visualizer():
 # =========================================================
 
 def enqueue_audio(show, time_slot):
-    global audio_queue
 
     time_slot_new = time_slot.replace(":", "")
     file_name = f"{show}_{time_slot_new}.mp3"
@@ -181,11 +214,9 @@ def enqueue_audio(show, time_slot):
     if not os.path.exists(file_name):
         return
 
-    # If playing → ignore
     if file_name == current_playing_file:
         return
 
-    # If already in queue → remove (DESELECT)
     if file_name in audio_queue:
         audio_queue.remove(file_name)
     else:
@@ -194,12 +225,13 @@ def enqueue_audio(show, time_slot):
     update_queue_display()
 
 def stop_audio():
-    global is_playing, current_playing_file, audio_queue
+    global is_playing, current_playing_file
 
     pygame.mixer.music.stop()
+    audio_queue.clear()
+
     is_playing = False
     current_playing_file = None
-    audio_queue.clear()
 
     update_queue_display()
     current_playing_var.set("Stopped")
@@ -260,6 +292,7 @@ def autopilot_scheduler():
                             ]
 
                         for trigger_type, trigger_time in trigger_map:
+
                             if trigger_time == current_time:
 
                                 time_slot_new = time_slot.replace(":", "")
@@ -268,6 +301,7 @@ def autopilot_scheduler():
                                 event_key = (file_name, trigger_type)
 
                                 if event_key not in session_triggered_events:
+
                                     session_triggered_events.add(event_key)
 
                                     if os.path.exists(file_name):
@@ -284,6 +318,7 @@ threading.Thread(target=autopilot_scheduler, daemon=True).start()
 
 def toggle_autopilot():
     global autopilot_mode, session_triggered_events
+
     autopilot_mode = not autopilot_mode
     session_triggered_events.clear()
 
@@ -294,6 +329,7 @@ def toggle_autopilot():
 
 def toggle_theme():
     global theme_mode
+
     if theme_mode == "dark":
         theme_mode = "light"
         ctk.set_appearance_mode("light")
@@ -307,7 +343,7 @@ def toggle_theme():
 # UI LAYOUT
 # =========================================================
 
-top_frame = ctk.CTkFrame(app, height=80)
+top_frame = ctk.CTkFrame(app)
 top_frame.pack(fill="x", pady=10, padx=20)
 
 ctk.CTkLabel(
@@ -404,7 +440,7 @@ for i, section in enumerate(show_sections):
 # STATUS BAR
 # =========================================================
 
-bottom_frame = ctk.CTkFrame(app, height=80)
+bottom_frame = ctk.CTkFrame(app)
 bottom_frame.pack(fill="x", padx=20, pady=10)
 
 ctk.CTkLabel(bottom_frame,
@@ -416,6 +452,14 @@ ctk.CTkLabel(bottom_frame,
              textvariable=queue_status_var,
              font=("Arial", 18)
              ).pack(side="left", padx=20)
+
+progress_bar = ctk.CTkProgressBar(bottom_frame, variable=progress_var, width=300)
+progress_bar.pack(side="left", padx=20)
+
+ctk.CTkLabel(bottom_frame,
+             textvariable=progress_text_var,
+             font=("Arial", 14)
+             ).pack(side="left", padx=5)
 
 stop_button = ctk.CTkButton(
     bottom_frame,
@@ -444,5 +488,6 @@ for i in range(20):
     visualizer_segments.append(bar)
 
 update_visualizer()
+update_progress()
 
 app.mainloop()
