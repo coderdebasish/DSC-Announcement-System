@@ -6,7 +6,7 @@ import time
 import os
 import random
 from mutagen.mp3 import MP3
-cdfhfhhtggvhv
+
 # =========================================================
 # INITIAL SETUP
 # =========================================================
