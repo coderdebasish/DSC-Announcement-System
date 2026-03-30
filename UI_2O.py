@@ -372,6 +372,21 @@ exit_btn.pack(side="right", padx=10)
 # End of full screen mode
 
 
+w = app.winfo_screenwidth()
+
+# Start of exit full screen mode
+exit_btn = ctk.CTkButton(
+    top_frame,
+    text="Exit Full Screen",font=("Arial", 18),
+    command=exit_fullscreen,
+    width=140,
+    height=50,
+    fg_color="#FF4C4C",
+    hover_color="#CC0000"
+)
+exit_btn.pack(side="right", padx=10)
+# End of full screen mode
+
 theme_button = ctk.CTkButton(
     top_frame,
     text="DARK MODE",
