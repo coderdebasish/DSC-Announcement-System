@@ -25,9 +25,13 @@ h = app.winfo_screenheight()
 app.geometry(f"{w}x{h}+0+0")
 app.overrideredirect(True)
 
+def enter_fullscreen(event=None):
+    app.overrideredirect(True)
+    app.geometry(f"{w}x{h}+0+0")
+
 def exit_fullscreen(event=None):
     app.overrideredirect(False)
-    app.geometry("1200x800")
+    app.geometry("1920x980")
 
 app.bind("<Escape>", exit_fullscreen)
 
@@ -333,11 +337,16 @@ def toggle_theme():
     if theme_mode == "dark":
         theme_mode = "light"
         ctk.set_appearance_mode("light")
-        theme_button.configure(text="LIGHT MODE")
+        theme_button.configure(text="DARK MODE")
     else:
         theme_mode = "dark"
         ctk.set_appearance_mode("dark")
-        theme_button.configure(text="DARK MODE")
+        theme_button.configure(text="LIGHT MODE")
+
+
+
+
+
 
 # =========================================================
 # UI LAYOUT
@@ -360,9 +369,24 @@ ctk.CTkLabel(
 
 
 
-w = app.winfo_screenwidth()
+
+
+ # enter full screen mode
+enter_btn = ctk.CTkButton(
+    top_frame,
+    text="Enter Full Screen",font=("Arial", 18),
+    command=enter_fullscreen,
+    width=140,
+    height=50,
+    fg_color="#0FDB53",
+    hover_color="#CC0000"
+)
+enter_btn.pack(side="right", padx=10)
+# exit full screen mode
+
 
 # Start of exit full screen mode
+
 exit_btn = ctk.CTkButton(
     top_frame,
     text="Exit Full Screen",font=("Arial", 18),
