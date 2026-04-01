@@ -18,7 +18,17 @@ def start_login():
     ctk.deactivate_automatic_dpi_awareness()
 
     login_app = ctk.CTk()
-    login_app.geometry("600x400")
+
+    # Center the window on screen
+    screen_width = login_app.winfo_screenwidth()
+    screen_height = login_app.winfo_screenheight()
+    window_width = 600
+    window_height = 700
+    x = (screen_width - window_width) // 2
+    y = (screen_height - window_height) // 2
+    login_app.geometry(f"{window_width}x{window_height}+{x}+{y}")
+    login_app.focus_force()
+
     login_app.title("Login Panel")
 
     login_app.protocol("WM_DELETE_WINDOW", lambda: exit())
@@ -36,6 +46,19 @@ def start_login():
     code_entry = ctk.CTkEntry(login_app,
         width=200, height=40, show="*", justify="center")
     code_entry.pack(pady=10)
+    code_entry.focus()
+    code_entry.configure(insertontime=0)
+    
+    show_btn = ctk.CTkButton(login_app, text="👁", width=35, height=35, command=lambda: toggle_show())
+    show_btn.pack(pady=2)
+
+    def toggle_show():
+        if code_entry.cget("show") == "*":
+            code_entry.configure(show="")
+            show_btn.configure(text="🙈")
+        else:
+            code_entry.configure(show="*")
+            show_btn.configure(text="👁")
 
     error_label = ctk.CTkLabel(login_app, text="", text_color="red")
     error_label.pack()
@@ -66,6 +89,53 @@ def start_login():
         fg_color="green",
         command=check_code
     ).pack(pady=20)
+
+    # Numeric Keyboard
+    keyboard_frame = ctk.CTkFrame(login_app)
+    keyboard_frame.pack(pady=5, padx=20)
+
+    # Define button layout
+    keys = [
+        ['1', '2', '3'],
+        ['4', '5', '6'],
+        ['7', '8', '9'],
+        ['⌫', '0', 'Enter']
+    ]
+
+    def key_press(key):
+        if key == '⌫':
+            current = code_entry.get()
+            if current:
+                code_entry.delete(len(current)-1, 'end')
+        elif key == 'Enter':
+            check_code()
+        else:
+            code_entry.insert('end', key)
+
+    for row_idx, row in enumerate(keys):
+        for col_idx, key in enumerate(row):
+            if key == '⌫':
+                color = "#FF5722"
+                hover = "#D84315"
+            elif key == 'Enter':
+                color = "#4CAF50"
+                hover = "#388E3C"
+            else:
+                color = "#2196F3"
+                hover = "#1976D2"
+            btn = ctk.CTkButton(
+                keyboard_frame,
+                text=key,
+                width=70,
+                height=70,
+                fg_color=color,
+                hover_color=hover,
+                corner_radius=10,
+                text_color="white",
+                font=("Arial", 20),
+                command=lambda k=key: key_press(k)
+            )
+            btn.grid(row=row_idx, column=col_idx, padx=8, pady=8)
 
     login_app.mainloop()
 
@@ -352,7 +422,7 @@ def open_main_app(app):
 
     ctk.CTkLabel(
         top_frame,
-        text="Digha Science Centre – Control Panel",
+        text="Digha Science Centre – Announcement Control Panel",
         font=("Arial", 26, "bold")
     ).pack(side="left", padx=20)
 
