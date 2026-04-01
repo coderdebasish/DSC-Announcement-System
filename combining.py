@@ -7,16 +7,79 @@ import os
 import random
 from mutagen.mp3 import MP3
 
-# =========================================================
-# INITIAL SETUP
-# =========================================================
 
-ctk.set_appearance_mode("dark")
-ctk.set_default_color_theme("blue")
+CORRECT_CODE = "721463"  # pin code
+login_app = ctk.CTk()
+login_app.geometry("600x400")
+login_app.title("Digha Science Centre – Announcement System")
+
+label = ctk.CTkLabel(
+    login_app,
+    text="Digha Science Centre – Announcement System Login Panel",
+    font=("Arial", 20, "bold")
+)
+label.pack(pady=15)
+
+label = ctk.CTkLabel(
+    login_app,
+    text="Enter 6 Digit Code",
+    font=("Arial", 20, "bold")
+)
+label.pack(pady=30)
+
+code_entry = ctk.CTkEntry(
+    login_app,
+    width=200,
+    height=40,
+    show="*",
+    justify="center"
+)
+code_entry.pack(pady=10)
+
+error_label = ctk.CTkLabel(login_app, text="", text_color="red")
+error_label.pack(pady=5)
+
+
+# ===== LOGIN CHECK =====
+def check_code():
+    entered = code_entry.get()
+
+    if entered == CORRECT_CODE:
+        login_app.destroy()      # close login
+        open_main_app()          # 👉 OPEN MAIN WINDOW
+    else:
+        error_label.configure(text="Incorrect Code ❌")
+        code_entry.delete(0, 'end')
+
+
+# Enter key works
+login_app.bind("<Return>", lambda e: check_code())
+
+# Button
+btn = ctk.CTkButton(
+    login_app,
+    text="Login",
+    width=180,
+    height=45,
+    fg_color="green",
+    hover_color="black",
+    text_color="white",
+    command=check_code
+)
+btn.pack(pady=3)
+
+
+login_app.mainloop()
+
+def open_main_app():
+
+ ctk.set_appearance_mode("dark")
+ ctk.set_default_color_theme("blue")
+app = ctk.CTk()
 
 pygame.mixer.init()
 
-app = ctk.CTk()
+
 app.title("Digha Science Centre – Announcement System")
 
 app.update_idletasks()
@@ -532,4 +595,4 @@ update_visualizer()
 update_progress()
 
 app.mainloop()
-
+# ===== LOGIN WINDOW =====
