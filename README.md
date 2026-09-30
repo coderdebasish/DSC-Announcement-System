@@ -49,13 +49,6 @@ py -3.11 main.py
 
 ---
 
-## 🔐 Login Access
-
-- **Security PIN**: `721463` (Postal Code of Digha Science Centre)
-- Enter via physical keyboard or the on-screen touch numpad.
-
----
-
 ## ✨ Features
 
 - **⚙ Dynamic Show & Slot Manager**:
